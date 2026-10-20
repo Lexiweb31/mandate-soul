@@ -1,5 +1,5 @@
 # { "Seq": [{ "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }] }
-"""Value Drift Detector (Mandate Soul): is this agent still doing what its principal meant?
+"""Mandate Soul, a value drift detector: is this agent still doing what its principal meant?
 
 The owner stores a natural-language mandate for an agent. The agent, the owner or
 approved reporters submit evidence (URLs or text). trigger_review() judges it under
@@ -14,7 +14,7 @@ Equivalence: validators agree on the on-chain consequence, not the wording.
 strict_eq fails on differing prose; prompt_comparative puts a subjective LLM where
 a crisp rule is needed. Summaries are never compared.
 
-Full docs: docs/value-drift-detector.md. Source stays under 20 KB (Bradbury deploy
+Full docs: docs/mandate-soul.md. Source stays under 20 KB (Bradbury deploy
 gas cap) and ASCII-only; no comment line may follow the runner header."""
 from genlayer import *
 
@@ -240,7 +240,7 @@ def _run_drift_review(mandate: str, criteria: list, evidence: list, auto_revoke:
 	return gl.vm.run_nondet(leader_fn, validator_fn)
 
 
-class ValueDriftDetector(gl.Contract):
+class MandateSoul(gl.Contract):
 	owner: Address
 	agent: Address
 	reporters: TreeMap[Address, bool]

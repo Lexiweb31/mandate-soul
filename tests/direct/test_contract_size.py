@@ -2,7 +2,7 @@
 Deploy-size guard. Bradbury rejects transactions above ~16.7M gas ("gas limit
 too high"), and a deploy stores the whole source on-chain at roughly 830 gas
 per byte. Measured: freelance_escrow.py 19,745 B -> 16.42M (deploys);
-value_drift_detector.py 24,639 B -> 20.2M (rejected).
+the drift detector (now mandate_soul.py) at 24,639 B -> 20.2M (rejected).
 """
 from pathlib import Path
 

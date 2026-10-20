@@ -1,19 +1,23 @@
 """
-Integration tests for value_drift_detector.py.
+Integration tests for mandate_soul.py.
 These run against a real GenLayer environment with live LLM calls and real
 leader/validator consensus, and measure how often validators agree under the
 contract's Equivalence Principle.
 
 Run against GLSim (fastest; needs OPENAI_API_KEY or ANTHROPIC_API_KEY in that terminal):
     glsim --port 4000 --validators 5 --llm-provider openai:gpt-4o-mini   # separate terminal
-    gltest tests/integration/test_value_drift_detector.py -v -s
+    gltest tests/integration/test_mandate_soul.py -v -s
 
 Run against localnet (full GenVM):
     genlayer up
-    gltest tests/integration/test_value_drift_detector.py -v -s --network localnet
+    gltest tests/integration/test_mandate_soul.py -v -s --network localnet
 
-Set VDD_TRIALS (default 3) to repeat each scenario and get a better agreement rate.
-Set VDD_PAUSE (seconds, default 0) to wait between reviews when the LLM provider
+Run against Bradbury testnet (real validators on mixed LLMs; DEPLOYER_PRIVATE_KEY in .env,
+wallet needs testnet GEN for gas). Slow, so start with one trial per scenario:
+    MS_TRIALS=1 gltest tests/integration/test_mandate_soul.py -v -s --network testnet_bradbury
+
+Set MS_TRIALS (default 3) to repeat each scenario and get a better agreement rate.
+Set MS_PAUSE (seconds, default 0) to wait between reviews when the LLM provider
 is rate-limited (e.g. a free-tier key).
 """
 import json
@@ -21,14 +25,25 @@ import os
 import time
 import urllib.request
 import pytest
+from eth_utils import decode_hex
+from genlayer_py.abi import calldata
+from genlayer_py.abi.transactions import serialize
+from genlayer_py.contracts.utils import make_calldata_object
+from genlayer_py.exceptions import GenLayerError
 
-from gltest import get_contract_factory, get_default_account, create_account
+from gltest import get_contract_factory, get_default_account, create_account, get_gl_client
 from gltest.assertions import tx_execution_succeeded
+from gltest.utils import extract_contract_address
+from gltest_cli.config.general import get_general_config
 
 
-RPC_URL = os.environ.get("VDD_RPC_URL", "http://127.0.0.1:4000/api")
-TRIALS = int(os.environ.get("VDD_TRIALS", "3"))
-PAUSE = float(os.environ.get("VDD_PAUSE", "0"))
+NETWORK = get_general_config().get_network_name()
+TESTNET = NETWORK.startswith("testnet")
+# Bradbury is slow; poll for up to 20 minutes per transaction.
+WAIT = dict(wait_interval=10000, wait_retries=120) if TESTNET else {}
+RPC_URL = os.environ.get("MS_RPC_URL", "http://127.0.0.1:4000/api")
+TRIALS = int(os.environ.get("MS_TRIALS", "3"))
+PAUSE = float(os.environ.get("MS_PAUSE", "0"))
 COMMITTED = ("ACCEPTED", "FINALIZED")
 
 MANDATE = (
@@ -67,40 +82,93 @@ def _network_up() -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(not _network_up(), reason=f"No GenLayer network at {RPC_URL}")
+pytestmark = pytest.mark.skipif(
+    not TESTNET and not _network_up(), reason=f"No GenLayer network at {RPC_URL}"
+)
+
+
+def _succeeded(receipt) -> bool:
+    # Testnet receipts leave consensus_data.leader_receipt empty, so gltest's
+    # check fails there; use the network's own consensus result instead.
+    if tx_execution_succeeded(receipt):
+        return True
+    return (
+        receipt.get("status_name") in COMMITTED
+        and receipt.get("result_name") in ("AGREE", "MAJORITY_AGREE")
+        and receipt.get("tx_execution_result_name") == "FINISHED_WITH_RETURN"
+    )
+
+
+def _send(method, args=None, attempts=3):
+    """transact() with retries: Bradbury sometimes reverts the EVM wrapper tx
+    (gas estimated with no margin). A reverted send changes nothing."""
+    for i in range(attempts):
+        try:
+            return method(args=args or []).transact(**WAIT)
+        except GenLayerError as e:
+            if "Transaction failed" not in str(e) or i == attempts - 1:
+                raise
+            print(f"  retrying after reverted send ({i + 1}/{attempts - 1})")
+            time.sleep(10)
+
+
+def _view(contract, method: str, *args):
+    """Read a view. Testnet's gen_call wraps the payload as {"data": <hex>},
+    which genlayer-py's read_contract can't decode, so decode it here."""
+    if not TESTNET:
+        out = getattr(contract, method)(args=list(args)).call()
+    else:
+        client = get_gl_client()
+        data = serialize([calldata.encode(make_calldata_object(method=method, args=list(args), kwargs=None)), b"\x00"])
+        result = client.provider.make_request(method="gen_call", params=[{
+            "type": "read", "to": contract.address, "from": client.local_account.address,
+            "data": data, "transaction_hash_variant": "latest-nonfinal",
+        }])["result"]
+        raw = result["data"] if isinstance(result, dict) else result
+        out = calldata.decode(decode_hex("0x" + raw))
+    return json.loads(out) if isinstance(out, str) else out
 
 
 def _deploy():
-    factory = get_contract_factory(contract_file_path="value_drift_detector.py")
+    factory = get_contract_factory(contract_file_path="mandate_soul.py")
     agent = create_account()
     # escalation off + auto-revoke off: repeated trials must not interfere with each other.
-    return factory.deploy(args=[agent.address, MANDATE, CRITERIA, False, 0, 80])
+    receipt = factory.deploy_contract_tx(args=[agent.address, MANDATE, CRITERIA, False, 0, 80], **WAIT)
+    assert _succeeded(receipt), {k: receipt.get(k) for k in ("status_name", "result_name", "tx_execution_result_name")}
+    try:
+        address = extract_contract_address(receipt)
+    except (TypeError, ValueError, KeyError):
+        address = receipt["recipient"]  # testnet: tx_data_decoded is empty
+    print(f"\n  deployed {address} on {NETWORK}")
+    return factory.build_contract(contract_address=address)
 
 
 def _run_trial(contract, kind: str, content: str) -> dict:
     """Submit one evidence item, trigger a review, and report the consensus outcome."""
-    contract.submit_evidence(args=[kind, content, "integration test"]).transact()
-    reviews_before = json.loads(contract.get_status(args=[]).call())["review_count"]
-    receipt = contract.trigger_review(args=[]).transact()
+    _send(contract.submit_evidence, [kind, content, "integration test"])
+    reviews_before = _view(contract, "get_status")["review_count"]
+    receipt = _send(contract.trigger_review)
     votes = list((receipt.get("consensus_data") or {}).get("votes", {}).values())
     agree = sum(1 for v in votes if str(v).lower() == "agree")
     status = str(receipt.get("status_name") or receipt.get("status"))
-    reviews_after = json.loads(contract.get_status(args=[]).call())["review_count"]
+    reviews_after = _view(contract, "get_status")["review_count"]
     outcome = {
         "status": status,
+        "result": receipt.get("result_name"),
         # Committed only if a majority agreed AND this review actually landed in state;
         # a successful leader receipt alone can leave a stale last verdict behind.
+        # Testnet receipts carry no per-validator votes; result_name stands in.
         "succeeded": (
-            tx_execution_succeeded(receipt)
+            _succeeded(receipt)
             and status in COMMITTED
-            and agree * 2 > len(votes)
+            and (agree * 2 > len(votes) if votes else TESTNET)
             and reviews_after == reviews_before + 1
         ),
         "agree": agree,
         "validators": len(votes),
     }
     if outcome["succeeded"]:
-        outcome["verdict"] = json.loads(contract.get_last_verdict(args=[]).call())
+        outcome["verdict"] = _view(contract, "get_last_verdict")
     if PAUSE:
         time.sleep(PAUSE)
     return outcome
@@ -113,7 +181,7 @@ def _run_scenario(name: str, kind: str, content: str) -> list:
     for i, r in enumerate(results):
         v = r.get("verdict", {})
         print(
-            f"  #{i + 1} {r['status']:<13} votes {r['agree']}/{r['validators']}  "
+            f"  #{i + 1} {r['status']:<13} {r['result'] or ''} votes {r['agree']}/{r['validators']}  "
             f"level={v.get('drift_level')} action={v.get('recommended_action')} "
             f"conf={v.get('confidence')} sufficient={v.get('evidence_sufficient')} "
             f"→ {v.get('status_after')}"
@@ -123,13 +191,13 @@ def _run_scenario(name: str, kind: str, content: str) -> list:
     return results
 
 
-class TestValueDriftDetectorConsensus:
+class TestMandateSoulConsensus:
 
     def test_deploy_and_read(self):
         contract = _deploy()
-        status = json.loads(contract.get_status(args=[]).call())
+        status = _view(contract, "get_status")
         assert status["status"] == "UNREVIEWED"
-        mandate = json.loads(contract.get_mandate(args=[]).call())
+        mandate = _view(contract, "get_mandate")
         assert mandate["criteria"] == CRITERIA
         assert mandate["owner"].lower() == get_default_account().address.lower()
 
@@ -158,14 +226,14 @@ class TestValueDriftDetectorConsensus:
         results = _run_scenario("borderline (mild vs material)", "text", EVIDENCE_BORDERLINE)
         assert len(results) == TRIALS
         # A rate with no votes behind it measures the infrastructure, not the contract.
-        assert any(r["validators"] > 0 for r in results), f"No validator voted in any trial: {results}"
+        assert TESTNET or any(r["validators"] > 0 for r in results), f"No validator voted in any trial: {results}"
 
     def test_appeal_reaches_consensus(self):
         contract = _deploy()
         first = _run_trial(contract, "text", EVIDENCE_SEVERE)
         assert first["succeeded"], first
-        receipt = contract.appeal_last_review(args=[]).transact()
-        assert tx_execution_succeeded(receipt), receipt
-        verdict = json.loads(contract.get_last_verdict(args=[]).call())
+        receipt = _send(contract.appeal_last_review)
+        assert _succeeded(receipt), receipt
+        verdict = _view(contract, "get_last_verdict")
         assert verdict["trigger"] == "appeal"
-        assert json.loads(contract.get_review(args=[0]).call())["appealed"] is True
+        assert _view(contract, "get_review", 0)["appealed"] is True

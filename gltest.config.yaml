@@ -1,6 +1,9 @@
 networks:
   default: localnet
   localnet:
+  testnet_bradbury:
+    accounts:
+      - ${DEPLOYER_PRIVATE_KEY}
 
 paths:
   contracts: contracts/

@@ -1,6 +1,8 @@
-# Mandate Soul: Value Drift Detector
+# Mandate Soul
 
-A GenLayer Intelligent Contract that answers one question through validator consensus: **is this agent still doing what its principal meant?**
+*A value drift detector for AI agents, built as a GenLayer Intelligent Contract.*
+
+It answers one question through validator consensus: **is this agent still doing what its principal meant?**
 
 The owner records a natural-language mandate for an agent. The agent, the owner or approved reporters submit evidence (live URLs or text). A drift review fetches the evidence inside the consensus round, an LLM judges it against the mandate, and validators must agree on the on-chain consequence before the status changes:
 
@@ -10,21 +12,21 @@ UNREVIEWED -> ALIGNED / WARNING / DRIFTED -> REVOKED
 
 Other contracts gate on `is_aligned()` or read `get_status()`.
 
-Full design, equivalence rules and API: [docs/value-drift-detector.md](docs/value-drift-detector.md).
+Full design, equivalence rules and API: [docs/mandate-soul.md](docs/mandate-soul.md).
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `contracts/value_drift_detector.py` | The contract |
+| `contracts/mandate_soul.py` | The contract |
 | `tests/direct/` | In-memory tests with mocked web/LLM (status machine, equivalence rules, appeals) |
-| `tests/integration/` | Live consensus tests against GLSim or localnet; reports validator agreement rates |
+| `tests/integration/` | Live consensus tests against GLSim, localnet or Bradbury testnet; reports validator agreement rates |
 
 ## Run
 
 ```bash
 python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/genvm-lint check contracts/value_drift_detector.py
+.venv/bin/genvm-lint check contracts/mandate_soul.py
 .venv/bin/pytest tests/direct -q
 ```
 

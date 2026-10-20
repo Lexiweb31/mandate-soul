@@ -1,6 +1,6 @@
-# Value Drift Detector
+# Mandate Soul
 
-`contracts/value_drift_detector.py` is a reusable on-chain primitive. It answers one question through consensus that can be appealed: **is this agent still doing what its principal meant?**
+`contracts/mandate_soul.py` (contract class `MandateSoul`) is a value drift detector: a reusable on-chain primitive. It answers one question through consensus that can be appealed: **is this agent still doing what its principal meant?**
 
 The principal (the owner) records a natural-language **mandate** for an agent, with optional explicit criteria. The agent, the owner or approved reporters submit **evidence** of what the agent actually did: URLs to live pages or logs, or inline text. An authorised party then triggers a **drift review**. Validators fetch the evidence live inside the consensus round, an LLM judges it against the mandate, and the validator set must agree on the judgment before anything is written to state.
 

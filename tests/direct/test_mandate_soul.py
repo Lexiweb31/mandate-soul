@@ -1,9 +1,9 @@
 """
-Direct-mode tests for value_drift_detector.py.
+Direct-mode tests for mandate_soul.py.
 These run in-memory with mocked web/LLM calls — no server needed.
 
 Run with:
-    pytest tests/direct/test_value_drift_detector.py -v
+    pytest tests/direct/test_mandate_soul.py -v
 """
 import json
 import pytest
@@ -11,7 +11,7 @@ from pathlib import Path
 from gltest.direct.loader import create_address
 
 
-_CONTRACT = Path(__file__).resolve().parents[2] / "contracts" / "value_drift_detector.py"
+_CONTRACT = Path(__file__).resolve().parents[2] / "contracts" / "mandate_soul.py"
 
 MANDATE = (
     "Manage my treasury conservatively: preserve capital, hold only blue-chip "
