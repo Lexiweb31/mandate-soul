@@ -76,14 +76,15 @@ LLM output is canonicalised identically on both sides before comparison. Common 
 | `get_status()` | Status, drift score, streak, mandate version, review count, pending count, revoke reason |
 | `get_mandate()` | Owner, agent, mandate, criteria, version, policy |
 | `get_last_verdict()` | The latest review in full |
-| `get_review(i)` | Review `i`; page through history with `review_count` |
+| `get_review(i)` | Full record of review `i` |
+| `get_history(offset, limit)` | Newest-first page of review summaries (max 20 per page) |
 | `is_reporter(address)` | Whether `address` may submit evidence |
 
 The policy (`auto_revoke`, `escalation_streak`, `auto_revoke_confidence`) is fixed at deploy time.
 
 ## How to use it
 
-- **Frontends** poll `get_status()` for a badge and `get_last_verdict()` for the explanation, and build a timeline by reading `get_review(i)` for `i < review_count`.
+- **Frontends** poll `get_status()` for a badge and `get_last_verdict()` for the explanation, and build a timeline from `get_history(0, 20)`, opening a full record with `get_review(i)`.
 - **Contracts** call `is_aligned()` or parse `get_status()` before paying or delegating to an agent, via `gl.get_contract_at(addr).view()`.
 - **Agents** submit their own activity reports as evidence on a schedule, and a keeper or the owner triggers reviews periodically.
 

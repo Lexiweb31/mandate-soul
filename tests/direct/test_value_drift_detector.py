@@ -241,6 +241,17 @@ class TestAppealAndHistory:
         with pytest.raises(Exception):
             contract.get_review(total)
 
+    def test_history_newest_first(self, direct_deploy, direct_vm):
+        contract, _, _ = _deploy(direct_deploy)
+        for lvl in ("none", "mild", "material"):
+            _review(contract, direct_vm, _llm(lvl, "constrain" if lvl == "material" else "continue"))
+        h = json.loads(contract.get_history(0, 2))
+        assert h["total"] == 3
+        assert [i["drift_level"] for i in h["items"]] == ["material", "mild"]
+        h2 = json.loads(contract.get_history(2, 2))
+        assert [i["drift_level"] for i in h2["items"]] == ["none"]
+        assert json.loads(contract.get_history(5, 2))["items"] == []
+
 
 class TestEquivalence:
     """Exercise the validator: re-run with different mocked LLM output."""
