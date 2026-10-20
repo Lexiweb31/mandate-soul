@@ -1,0 +1,6 @@
+networks:
+  default: localnet
+  localnet:
+
+paths:
+  contracts: contracts/
