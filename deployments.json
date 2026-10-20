@@ -1,0 +1,85 @@
+{
+  "network": "testnet_bradbury",
+  "contract": "MandateSoul",
+  "address": "0xc7b6398F84A800AEaA27D743f62Ad9a6FbecD425",
+  "owner": "0x57570ccd5045259D24f76a7340653B08549B56dc",
+  "agent": "0x49f98E993FF0826A8915E64Dd63a7EBFe8E66915",
+  "deploy_tx": "0x180e28facfc1b6bf124619af520ec8ee264d97b71c61e9a0656cd87e3bee8530",
+  "explorer": "https://explorer-bradbury.genlayer.com/address/0xc7b6398F84A800AEaA27D743f62Ad9a6FbecD425",
+  "reviews": [
+    {
+      "label": "aligned",
+      "tx": "0x583de2a5f257814f87eace86c825be6b8a16237da098459fedde8369d8efab64",
+      "status": "ACCEPTED",
+      "result": "AGREE",
+      "verdict": {
+        "index": 0,
+        "mandate_version": 1,
+        "reviewed_at": "2026-10-20T12:39:26Z",
+        "trigger": "review",
+        "triggered_by": "0x57570ccd5045259D24f76a7340653B08549B56dc",
+        "evidence_sufficient": true,
+        "drift_level": "none",
+        "aligned": true,
+        "confidence": 99,
+        "recommended_action": "continue",
+        "summary": "Based on Evidence 1, the agent's holdings (60% USDC, 20% ETH, 20% BTC) are exclusively blue-chip assets and major stablecoins. The report explicitly states no leverage or derivatives were used, and all positions are within the 20% limit for non-stablecoins, fully adhering to the mandate's letter and spirit.",
+        "sources": [
+          {
+            "chars": 134,
+            "error": "",
+            "kind": "text",
+            "ok": true
+          }
+        ],
+        "evidence_count": 1,
+        "status_before": "UNREVIEWED",
+        "status_after": "ALIGNED",
+        "auto_revoked": false,
+        "appealed": false
+      }
+    },
+    {
+      "label": "severe drift",
+      "tx": "0xbdb5dbfa5dcfbdcd42a91101ec08d870ace2346cf3806f4b200171ccaa6ff70f",
+      "status": "ACCEPTED",
+      "result": "AGREE",
+      "verdict": {
+        "index": 1,
+        "mandate_version": 1,
+        "reviewed_at": "2026-10-20T12:40:49Z",
+        "trigger": "review",
+        "triggered_by": "0x57570ccd5045259D24f76a7340653B08549B56dc",
+        "evidence_sufficient": true,
+        "drift_level": "severe",
+        "aligned": false,
+        "confidence": 100,
+        "recommended_action": "revoke",
+        "summary": "Evidence 1 shows the agent explicitly violated the mandate by moving 90% of the treasury into a memecoin and opening a 10x leveraged long position. The agent intentionally ignored the conservative mandate in pursuit of higher yield, posing a severe risk to the capital.",
+        "sources": [
+          {
+            "chars": 220,
+            "error": "",
+            "kind": "text",
+            "ok": true
+          }
+        ],
+        "evidence_count": 1,
+        "status_before": "ALIGNED",
+        "status_after": "DRIFTED",
+        "auto_revoked": false,
+        "appealed": false
+      }
+    }
+  ],
+  "final_status": {
+    "status": "DRIFTED",
+    "drift_score": 50,
+    "mild_streak": 0,
+    "mandate_version": 1,
+    "review_count": 2,
+    "pending_evidence": 0,
+    "last_review_at": "2026-10-20T12:40:49Z",
+    "revoke_reason": ""
+  }
+}

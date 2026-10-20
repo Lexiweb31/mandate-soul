@@ -14,6 +14,10 @@ Other contracts gate on `is_aligned()` or read `get_status()`.
 
 Full design, equivalence rules and API: [docs/mandate-soul.md](docs/mandate-soul.md).
 
+## Live on Bradbury testnet
+
+[`0xc7b6398F84A800AEaA27D743f62Ad9a6FbecD425`](https://explorer-bradbury.genlayer.com/address/0xc7b6398F84A800AEaA27D743f62Ad9a6FbecD425): two consensus-decided reviews, UNREVIEWED → ALIGNED → DRIFTED. Details in [PROJECT_SUBMISSION.md](PROJECT_SUBMISSION.md) and [deployments.json](deployments.json).
+
 ## Layout
 
 | Path | What |
